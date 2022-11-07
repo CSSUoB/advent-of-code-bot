@@ -5,6 +5,7 @@ import json
 import urllib.request
 from dotenv import load_dotenv
 
+import discord
 from discord.ext import commands
 
 load_dotenv()
@@ -84,7 +85,7 @@ async def output_leaderboard(context, leaderboard_lst):
 
 
 # Create the bot and specify to only look for messages starting with '!'
-bot = commands.Bot(command_prefix='!')
+bot = commands.Bot(intents = discord.Intents.all(), command_prefix = '!')
 
 
 @bot.event

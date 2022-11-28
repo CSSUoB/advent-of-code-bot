@@ -1,0 +1,8 @@
+services:
+  adventofcode:
+    build:
+      context: .
+    volumes:
+      - type: bind
+        source: ./.env
+        target: /app/.env

@@ -1,10 +1,9 @@
 # advent-of-code-bot [![Latest release](https://travis-ci.com/Danyc0/advent-of-code-bot.svg?branch=main)](https://travis-ci.com/Danyc0/advent-of-code-bot)
 A simple Discord bot for Advent Of Code
 
-## Dependencies
-    pip install -U Discord.py python-dotenv
+## Getting started
 
-## Setup
+### Setup
 
 You'll need to create a discord bot of your own in the [Discord Developer Portal](https://discord.com/developers/applications) with View Channels and Read Messages permissions. It's also handy if you have an empty server (or "guild") for you to test in. This section of [this guide](https://realpython.com/how-to-make-a-discord-bot-python/#how-to-make-a-discord-bot-in-the-developer-portal) may be helpful to set that up.
 
@@ -15,6 +14,21 @@ You'll need to set three environment variables:
 
 You can put these in a .env file in the repo directory as it uses dotenv (See [here](https://pypi.org/project/python-dotenv/) for usage) so you don't have to keep them in your environment
 
+### Starting the bot
+
+#### Using Docker
+    docker compose up --build
+
+#### Manually
+
+First install the dependencies:
+
+    pip install -U Discord.py python-dotenv
+
+Then run the main file:
+
+    python src/main.py
+
 ## Contributions
 
 In short, patches welcome.
@@ -22,3 +36,4 @@ In short, patches welcome.
 If you raise a PR, I'll test it, give some feedback and then (eventually) merge it.
 
 This project aims to follow PEP8, but with a line length of 120 characters, and [PEP8 Speaks](https://github.com/OrkoHunter/pep8speaks/) and [Travis CI](https://travis-ci.com/Danyc0/advent-of-code-bot) will perk up in the comments of your PR if you go against this.
+

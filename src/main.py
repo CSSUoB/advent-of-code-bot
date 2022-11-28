@@ -90,7 +90,7 @@ async def output_leaderboard(context, leaderboard_lst, year=None):
     output_str = '```'
 
     if year is not None:
-        output_str = f'Leaderboard for {year}:\n'
+        output_str += f'Leaderboard for {year}:\n'
 
     while (len(tmp_leaderboard) * item_len) > MAX_MESSAGE_LEN:
         output_str += ''.join(tmp_leaderboard[:block_size])
@@ -144,19 +144,16 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
 
 
 @bot.command(name='rank', help='Responds with the current ranking of the supplied player')
-async def rank(context, *name):
+async def rank(context, name, year: int = CURRENT_YEAR):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
         return
 
-    # Join together all passed parameters with a space, this allows users to enter names with spaces
-    player_name = ' '.join(name)
-
-    print('Rank requested for: ', player_name)
-    players = get_players(CURRENT_YEAR)
+    print('Rank requested for: ', name)
+    players = get_players(year)
 
     # Get the player with the matching name (case insensitive)
-    players = [(i, player) for i, player in enumerate(players) if player[0].upper() == player_name.upper()]
+    players = [(i, player) for i, player in enumerate(players) if player[0].upper() == name.upper()]
     if players:
         # Assume there was only one match
         i, player = players[0]

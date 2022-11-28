@@ -10,8 +10,9 @@ from discord.ext import commands
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-URL = os.getenv('AOC_URL')
+LEADERBOARD_ID = os.getenv('AOC_LEADERBOARD_ID')
 COOKIE = os.getenv('AOC_COOKIE')
+CURRENT_YEAR = os.getenv('CURRENT_YEAR')
 
 # Advent Of Code request that you don't poll their API more often than once every 15 minutes
 POLL_MINS = 15
@@ -20,24 +21,38 @@ POLL_MINS = 15
 MAX_MESSAGE_LEN = 2000 - 6
 
 PLAYER_STR_FORMAT = '{rank:2}) {name:{name_pad}} ({points:{points_pad}}) {stars:{stars_pad}}* ({star_time})\n'
+URL_STR_FORMAT = 'https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard_id}.json'
 
 CHANNEL_NAME = 'advent-of-code'
 
-players_cache = ()
+players_cache = {}
 
 
-def get_players():
+def get_url(year: int):
+    return URL_STR_FORMAT.format(year=year, leaderboard_id=LEADERBOARD_ID)
+
+
+def get_players(year: int = CURRENT_YEAR):
     global players_cache
     now = time.time()
     debug_msg = 'Got Leaderboard From Cache'
+    url = get_url(year)
 
     # If the cache is more than POLL_MINS old, refresh the cache, else use the cache
-    if not players_cache or (now - players_cache[0]) > (60*POLL_MINS):
+    if year not in players_cache or (now - players_cache[year][0]) > (60*POLL_MINS):
         debug_msg = 'Got Leaderboard Fresh'
 
-        req = urllib.request.Request(URL)
+        req = urllib.request.Request(url)
         req.add_header('Cookie', 'session=' + COOKIE)
-        page = urllib.request.urlopen(req).read()
+
+        try:
+            page = urllib.request.urlopen(req).read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                players_cache[year] = (now, [])
+                return []
+            else:
+                raise e
 
         data = json.loads(page)
         # print(json.dumps(data, indent=4, sort_keys=True))
@@ -53,32 +68,36 @@ def get_players():
         # Players that are anonymous have no name in the JSON, so give them a default name "Anon"
         for i, player in enumerate(players):
             if not player[0]:
-                anon_name = "anon #" + player[5]
+                anon_name = "anon #" + str(player[5])
                 players[i] = (anon_name, player[1], player[2], player[3], player[4], player[5])
 
         # Sort the table primarily by score, secondly by stars and finally by timestamp
         players.sort(key=lambda tup: tup[3])
         players.sort(key=lambda tup: tup[2], reverse=True)
         players.sort(key=lambda tup: tup[1], reverse=True)
-        players_cache = (now, players)
+        players_cache[year] = (now, players)
 
     print(debug_msg)
-    return players_cache[1]
+    return players_cache[year][1]
 
 
-async def output_leaderboard(context, leaderboard_lst):
+async def output_leaderboard(context, leaderboard_lst, year=None):
     item_len = len(leaderboard_lst[0])
     block_size = MAX_MESSAGE_LEN // item_len
 
     tmp_leaderboard = leaderboard_lst
 
+    output_str = '```'
+
+    if year is not None:
+        output_str = f'Leaderboard for {year}:\n'
+
     while (len(tmp_leaderboard) * item_len) > MAX_MESSAGE_LEN:
-        output_str = '```'
         output_str += ''.join(tmp_leaderboard[:block_size])
         output_str += '```'
         await context.send(output_str)
+        output_str = '```'
         tmp_leaderboard = tmp_leaderboard[block_size:]
-    output_str = '```'
     output_str += ''.join(tmp_leaderboard)
     output_str += '```'
     await context.send(output_str)
@@ -96,13 +115,17 @@ async def on_ready():
 
 
 @bot.command(name='leaderboard', help='Responds with the current leaderboard')
-async def leaderboard(context, num_players: int = 20):
+async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
         return
 
     print('Leaderboard requested')
-    players = get_players()[:num_players]
+    players = get_players(year)[:num_players]
+
+    if len(players) == 0:
+        await context.send(f'```Could not find a leaderboard for {year}```')
+        return
 
     # Get string lengths for the format string
     max_name_len = len(max(players, key=lambda t: len(t[0]))[0])
@@ -117,7 +140,7 @@ async def leaderboard(context, num_players: int = 20):
                                                     stars=player[2], stars_pad=max_stars_len,
                                                     star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
 
-    await output_leaderboard(context, leaderboard)
+    await output_leaderboard(context, leaderboard, year)
 
 
 @bot.command(name='rank', help='Responds with the current ranking of the supplied player')
@@ -130,7 +153,7 @@ async def rank(context, *name):
     player_name = ' '.join(name)
 
     print('Rank requested for: ', player_name)
-    players = get_players()
+    players = get_players(CURRENT_YEAR)
 
     # Get the player with the matching name (case insensitive)
     players = [(i, player) for i, player in enumerate(players) if player[0].upper() == player_name.upper()]
@@ -156,7 +179,7 @@ async def keen(context):
         return
     print('Keenest bean requested')
 
-    all_players = get_players()
+    all_players = get_players(CURRENT_YEAR)
     # Calculate the highest number of stars gained by anyone in the leaderboard
     max_stars = max(all_players, key=lambda t: t[2])[2]
     # Get list of players with max stars
@@ -189,8 +212,7 @@ async def daily(context, day: str = None):
         return
 
     print("Daily leaderboard requested for day:", day)
-    players = get_players()
-
+    players = get_players(CURRENT_YEAR)
     # Goes through all the players checking if they have data for that day and if they do adding to players_days
     players_day = [player for player in players if day in player[4]]
 

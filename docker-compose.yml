@@ -6,3 +6,4 @@ services:
       - type: bind
         source: ./.env
         target: /app/.env
+    network_mode: bridge

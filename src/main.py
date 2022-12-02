@@ -12,7 +12,7 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 LEADERBOARD_ID = os.getenv('AOC_LEADERBOARD_ID')
 COOKIE = os.getenv('AOC_COOKIE')
-CURRENT_YEAR = os.getenv('CURRENT_YEAR')
+CURRENT_YEAR = int(os.getenv('CURRENT_YEAR'))
 
 # Advent Of Code request that you don't poll their API more often than once every 15 minutes
 POLL_MINS = 15
@@ -82,29 +82,19 @@ def get_players(year: int = CURRENT_YEAR):
 
 
 async def output_leaderboard(context, leaderboard_lst, year=None):
-    item_len = len(leaderboard_lst[0])
-    block_size = MAX_MESSAGE_LEN // item_len
+    output_str = f'Leaderboard for {year}:\n'
 
-    tmp_leaderboard = leaderboard_lst
-
-    output_str = '```'
-
-    if year is not None:
-        output_str += f'Leaderboard for {year}:\n'
-
-    while (len(tmp_leaderboard) * item_len) > MAX_MESSAGE_LEN:
-        output_str += ''.join(tmp_leaderboard[:block_size])
-        output_str += '```'
-        await context.send(output_str)
-        output_str = '```'
-        tmp_leaderboard = tmp_leaderboard[block_size:]
-    output_str += ''.join(tmp_leaderboard)
-    output_str += '```'
-    await context.send(output_str)
+    for i, player in enumerate(leaderboard_lst):
+        if len(output_str) + len(player) > MAX_MESSAGE_LEN:
+            await context.send(f'```{output_str}```')
+            output_str = ''
+        output_str += player
+        
+    await context.send(f'```{output_str}```')
 
 
 # Create the bot and specify to only look for messages starting with '!'
-bot = commands.Bot(intents = discord.Intents.all(), command_prefix = '!')
+bot = commands.Bot(intents=discord.Intents.all(), command_prefix='!')
 
 
 @bot.event
@@ -120,6 +110,9 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     if CHANNEL_NAME not in context.channel.name:
         return
 
+    if num_players < 1:
+        return
+
     print('Leaderboard requested')
     players = get_players(year)[:num_players]
 
@@ -132,15 +125,21 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     max_points_len = len(str(max(players, key=lambda t: t[1])[1]))
     max_stars_len = len(str(max(players, key=lambda t: t[2])[2]))
 
-    leaderboard = []
+    ranking = []
     for i, player in enumerate(players):
-        leaderboard.append(PLAYER_STR_FORMAT.format(rank=i+1,
+        if player[2] != 0 or \
+                datetime.datetime(CURRENT_YEAR, 12, 2) + datetime.timedelta(hours=5) > datetime.datetime.now():
+            ranking.append(PLAYER_STR_FORMAT.format(rank=i+1,
                                                     name=player[0], name_pad=max_name_len,
                                                     points=player[1], points_pad=max_points_len,
                                                     stars=player[2], stars_pad=max_stars_len,
                                                     star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
 
-    await output_leaderboard(context, leaderboard, year)
+    if not ranking:
+        await context.send(f'```No one has completed any stars yet for {year}```')
+        return
+
+    await output_leaderboard(context, ranking, year)
 
 
 @bot.command(name='rank', help='Responds with the current ranking of the supplied player')
@@ -152,7 +151,7 @@ async def rank(context, name, year: int = CURRENT_YEAR):
     print('Rank requested for: ', name)
     players = get_players(year)
 
-    # Get the player with the matching name (case insensitive)
+    # Get the player with the matching name (case-insensitive)
     players = [(i, player) for i, player in enumerate(players) if player[0].upper() == name.upper()]
     if players:
         # Assume there was only one match
@@ -210,7 +209,7 @@ async def daily(context, day: str = None):
 
     print("Daily leaderboard requested for day:", day)
     players = get_players(CURRENT_YEAR)
-    # Goes through all the players checking if they have data for that day and if they do adding to players_days
+    # Goes through all the players checking if they have data for that day and if they do add to players_days
     players_day = [player for player in players if day in player[4]]
 
     # Players_day has all people who have finished one star for that day
@@ -253,15 +252,15 @@ async def daily(context, day: str = None):
         max_name_len = len(max(final_table, key=lambda t: len(t[0]))[0])
         max_points_len = len(str(max(final_table, key=lambda t: t[1])[1]))
         max_stars_len = len(str(max(final_table, key=lambda t: t[3])[3]))
-        leaderboard = []
+        ranking = []
         for place, player in enumerate(final_table):
-            leaderboard.append(PLAYER_STR_FORMAT.format(rank=place+1,
-                                                        name=player[0], name_pad=max_name_len,
-                                                        points=player[1], points_pad=max_points_len,
-                                                        stars=player[3], stars_pad=max_stars_len,
-                                                        star_time=time.strftime('%H:%M %d/%m',
-                                                                                time.localtime(player[2]))))
-        await output_leaderboard(context, leaderboard)
+            ranking.append(PLAYER_STR_FORMAT.format(rank=place+1,
+                                                    name=player[0], name_pad=max_name_len,
+                                                    points=player[1], points_pad=max_points_len,
+                                                    stars=player[2], stars_pad=max_stars_len,
+                                                    star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
+
+        await output_leaderboard(context, ranking)
 
 
 bot.run(TOKEN)

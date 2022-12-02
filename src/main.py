@@ -82,25 +82,15 @@ def get_players(year: int = CURRENT_YEAR):
 
 
 async def output_leaderboard(context, leaderboard_lst, year=None):
-    item_len = len(leaderboard_lst[0])
-    block_size = MAX_MESSAGE_LEN // item_len - 1
+    output_str = f'Leaderboard for {year}:\n'
 
-    tmp_leaderboard = leaderboard_lst
-
-    output_str = '```'
-
-    if year is not None:
-        output_str += f'Leaderboard for {year}:\n'
-
-    while (len(tmp_leaderboard) * item_len) > MAX_MESSAGE_LEN:
-        output_str += ''.join(tmp_leaderboard[:block_size])
-        output_str += '```'
-        await context.send(output_str)
-        output_str = '```'
-        tmp_leaderboard = tmp_leaderboard[block_size:]
-    output_str += ''.join(tmp_leaderboard)
-    output_str += '```'
-    await context.send(output_str)
+    for i, player in enumerate(leaderboard_lst):
+        if len(output_str) + len(player) > MAX_MESSAGE_LEN:
+            await context.send(f'```{output_str}```')
+            output_str = ''
+        output_str += player
+        
+    await context.send(f'```{output_str}```')
 
 
 # Create the bot and specify to only look for messages starting with '!'

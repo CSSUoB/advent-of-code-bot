@@ -13,6 +13,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 LEADERBOARD_ID = os.getenv('AOC_LEADERBOARD_ID')
 COOKIE = os.getenv('AOC_COOKIE')
 CURRENT_YEAR = int(os.getenv('CURRENT_YEAR'))
+CHANNEL_NAME = os.getenv('CHANNEL_NAME')
 
 # Advent Of Code request that you don't poll their API more often than once every 15 minutes
 POLL_MINS = 15
@@ -22,8 +23,6 @@ MAX_MESSAGE_LEN = 2000 - 6
 
 PLAYER_STR_FORMAT = '{rank:2}) {name:{name_pad}} ({points:{points_pad}}) {stars:{stars_pad}}* ({star_time})\n'
 URL_STR_FORMAT = 'https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard_id}.json'
-
-CHANNEL_NAME = 'advent-of-code'
 
 players_cache = {}
 

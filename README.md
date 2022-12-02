@@ -11,6 +11,7 @@ You'll need to set three environment variables:
 * DISCORD TOKEN -> The Discord token for the bot you created (Available on your bot page in the developer portal)
 * AOC_LEADERBOARD_ID -> The leaderboard ID of your private leaderboard
 * AOC_COOKIE -> Your Advent Of Code session cookie so the bot has permission to view your private leaderboard (You can extract this from your web browser after signing in to AoC)
+* CHANNEL_NAME -> The name of the channel the bot should respond to requests in
 * CURRENT_YEAR -> The default year to request
 
 You can put these in a .env file in the repo directory as it uses dotenv (See [here](https://pypi.org/project/python-dotenv/) for usage) so you don't have to keep them in your environment

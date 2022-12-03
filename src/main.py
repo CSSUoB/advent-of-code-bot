@@ -80,8 +80,8 @@ def get_players(year: int = CURRENT_YEAR):
     return players_cache[year][1]
 
 
-async def output_leaderboard(context, leaderboard_lst, year=None):
-    output_str = f'Leaderboard for {year}:\n'
+async def output_leaderboard(context, leaderboard_lst, title = None):
+    output_str = "" if title is None else title
 
     for i, player in enumerate(leaderboard_lst):
         if len(output_str) + len(player) > MAX_MESSAGE_LEN:
@@ -138,7 +138,7 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
         await context.send(f'```No one has completed any stars yet for {year}```')
         return
 
-    await output_leaderboard(context, ranking, year)
+    await output_leaderboard(context, ranking, f'Leaderboard for {year}:\n')
 
 
 @bot.command(name='rank', help='Responds with the current ranking of the supplied player')
@@ -183,7 +183,7 @@ async def keen(context):
     # Find the first person who got the max stars
     i, player = min(players, key=lambda t: t[1][3])
 
-    result = 'Today\'s keenest bean is:\n```'
+    result = '```Today\'s keenest bean is:\n'
     result += PLAYER_STR_FORMAT.format(rank=i+1,
                                        name=player[0], name_pad=len(player[0]),
                                        points=player[1], points_pad=len(str(player[1])),
@@ -259,7 +259,7 @@ async def daily(context, day: str = None):
                                                     stars=player[2], stars_pad=max_stars_len,
                                                     star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
 
-        await output_leaderboard(context, ranking)
+        await output_leaderboard(context, ranking, f'Leaderboard for {CURRENT_YEAR}, day {day}:\n')
 
 
 bot.run(TOKEN)

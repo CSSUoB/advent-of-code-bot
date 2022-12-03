@@ -256,8 +256,8 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR):
             ranking.append(PLAYER_STR_FORMAT.format(rank=place+1,
                                                     name=player[0], name_pad=max_name_len,
                                                     points=player[1], points_pad=max_points_len,
-                                                    stars=player[2], stars_pad=max_stars_len,
-                                                    star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
+                                                    stars=player[3], stars_pad=max_stars_len,
+                                                    star_time=time.strftime('%H:%M %d/%m', time.localtime(player[2]))))
 
         await output_leaderboard(context, ranking)
 

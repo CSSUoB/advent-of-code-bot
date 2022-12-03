@@ -194,7 +194,7 @@ async def keen(context):
 
 
 @bot.command(name='daily', help='Will give the daily leaderboard for specified day')
-async def daily(context, day: str = None):
+async def daily(context, day: str = None, year: int = CURRENT_YEAR):
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
     if day is None:
@@ -207,7 +207,7 @@ async def daily(context, day: str = None):
         return
 
     print("Daily leaderboard requested for day:", day)
-    players = get_players(CURRENT_YEAR)
+    players = get_players(year)
     # Goes through all the players checking if they have data for that day and if they do add to players_days
     players_day = [player for player in players if day in player[4]]
 

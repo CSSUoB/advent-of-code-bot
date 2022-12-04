@@ -24,6 +24,8 @@ MAX_MESSAGE_LEN = 2000 - 6
 PLAYER_STR_FORMAT = '{rank:2}) {name:{name_pad}} ({points:{points_pad}}) {stars:{stars_pad}}* ({star_time})\n'
 URL_STR_FORMAT = 'https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard_id}.json'
 
+USER_AGENT = 'github.com/CSSUoB/advent-of-code-bot by cssoc@cs.bham.ac.uk'
+
 players_cache = {}
 
 
@@ -43,6 +45,7 @@ def get_players(year: int = CURRENT_YEAR):
 
         req = urllib.request.Request(url)
         req.add_header('Cookie', 'session=' + COOKIE)
+        req.add_header('User-Agent', USER_AGENT)
 
         try:
             page = urllib.request.urlopen(req).read()

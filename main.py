@@ -246,7 +246,7 @@ async def daily(context, day: str = None):
 
 
 @bot.command(name='stars', help='Will give the time of completion of each star for specified day')
-async def daily(context, day: str = None):
+async def stars(context, day: str = None):
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
     if day is None:

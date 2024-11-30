@@ -102,12 +102,13 @@ bot = commands.Bot(intents=discord.Intents.all(), command_prefix='!')
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f'{bot.user.name} has connected to Discord and is in the following channels:')
     for guild in bot.guilds:
         print('  ', guild.name)
 
 
-@bot.command(name='leaderboard', help='Responds with the current leaderboard')
+@bot.hybrid_command(name='leaderboard', help='Responds with the current leaderboard')
 async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
@@ -145,7 +146,7 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     await output_leaderboard(context, ranking, f'Leaderboard for {year}:\n')
 
 
-@bot.command(name='rank', help='Responds with the current ranking of the supplied player')
+@bot.hybrid_command(name='rank', help='Responds with the current ranking of the supplied player')
 async def rank(context, name, year: int = CURRENT_YEAR):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
@@ -171,7 +172,7 @@ async def rank(context, name, year: int = CURRENT_YEAR):
     await context.send(result)
 
 
-@bot.command(name='keen', help='Responds with today\'s keenest bean')
+@bot.hybrid_command(name='keen', help='Responds with today\'s keenest bean')
 async def keen(context):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
@@ -197,7 +198,7 @@ async def keen(context):
     await context.send(result)
 
 
-@bot.command(name='daily', help='Will give the daily leaderboard for specified day')
+@bot.hybrid_command(name='daily', help='Will give the daily leaderboard for specified day')
 async def daily(context, day: str = None, year: int = CURRENT_YEAR):
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
@@ -266,7 +267,7 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR):
         await output_leaderboard(context, ranking, f'Leaderboard for {year}, day {day}:\n')
 
 
-@bot.command(name='stars', help='Will give the time of completion of each star for specified day')
+@bot.hybrid_command(name='stars', help='Will give the time of completion of each star for specified day')
 async def stars(context, day: str = None, year: int = CURRENT_YEAR):
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called

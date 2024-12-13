@@ -22,6 +22,8 @@ POLL_MINS = 15
 MAX_MESSAGE_LEN = 2000 - 6
 
 PLAYER_STR_FORMAT = '{rank:2}) {name:{name_pad}} ({points:{points_pad}}) {stars:{stars_pad}}* ({star_time})\n'
+PLAYER_STR_FORMAT_DELTA = '{rank:2}) {name:{name_pad}} ({delta_points:{delta_points_pad}}) {stars:{stars_pad}}* Δ mean: {delta_mean:{delta_mean_pad}} median: {delta_median:{delta_median_pad}}\n'
+PLAYER_STR_FORMAT_DELTA_DAILY = '{rank:2}) {name:{name_pad}} ({delta_points:{delta_points_pad}}) {stars:{stars_pad}}* Δ {delta:{delta_pad}}\n'
 PLAYER_STR_FORMAT_NOPOINTS = '{rank:2}) {name:{name_pad}} {stars:{stars_pad}}* ({star_time})\n'
 URL_STR_FORMAT = 'https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard_id}.json'
 
@@ -32,6 +34,53 @@ players_cache = {}
 
 def get_url(year: int):
     return URL_STR_FORMAT.format(year=year, leaderboard_id=LEADERBOARD_ID)
+
+def pretty_time(seconds):
+    if seconds > 86400:
+        return ">1d"
+    
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if seconds > 0 or not parts:
+        parts.append(f"{seconds}s")
+
+    return ''.join(parts)
+
+def extract_delta_data(data):
+    days = {i: [] for i in range(1, 26)}
+    members = {}
+
+    for member in data['members'].values():
+        delta_times = []
+        member_id = member["id"]
+        
+        for day, day_data in member["completion_day_level"].items():
+            if "2" in day_data:
+                delta = day_data["2"]["get_star_ts"] - day_data["1"]["get_star_ts"]
+                days[int(day)].append((member_id, delta))
+                delta_times.append(delta)
+        
+        delta_times.sort()
+        mean = sum(delta_times) // len(delta_times) if delta_times else None
+        median = delta_times[len(delta_times) // 2] if delta_times else None
+        members[member_id] = {"mean": mean, "median": median, "score": 0}
+    
+    for day, deltas in days.items():
+        if not deltas:
+            continue
+        
+        deltas.sort(key=lambda x: x[1])
+        for rank, (member_id, _) in enumerate(deltas):
+            score = len(data['members']) - rank
+            members[member_id]["score"] += score * 2 # multiply by two to make delta scores easier to compare to real scores
+
+    return members
 
 
 def get_players(year: int = CURRENT_YEAR):
@@ -59,20 +108,22 @@ def get_players(year: int = CURRENT_YEAR):
 
         data = json.loads(page)
         # print(json.dumps(data, indent=4, sort_keys=True))
-
+        
+        delta_data = extract_delta_data(data)
         # Extract the data from the JSON, it's a mess
         players = [(member['name'],
                     member['local_score'],
                     member['stars'],
                     int(member['last_star_ts']),
                     member['completion_day_level'],
-                    member['id']) for member in data['members'].values()]
+                    member['id'],
+                    delta_data[member["id"]]) for member in data['members'].values()]
 
         # Players that are anonymous have no name in the JSON, so give them a default name "Anon"
         for i, player in enumerate(players):
             if not player[0]:
                 anon_name = "anon #" + str(player[5])
-                players[i] = (anon_name, player[1], player[2], player[3], player[4], player[5])
+                players[i] = (anon_name, player[1], player[2], player[3], player[4], player[5], player[6])
 
         # Sort the table primarily by score, secondly by stars and finally by timestamp
         players.sort(key=lambda tup: tup[3])
@@ -109,7 +160,7 @@ async def on_ready():
 
 
 @bot.hybrid_command(name='leaderboard', help='Responds with the current leaderboard')
-async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
+async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR, delta: bool = False):
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
         return
@@ -128,22 +179,41 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR):
     max_name_len = len(max(players, key=lambda t: len(t[0]))[0])
     max_points_len = len(str(max(players, key=lambda t: t[1])[1]))
     max_stars_len = len(str(max(players, key=lambda t: t[2])[2]))
+    
+    max_delta_points_len = len(str(max(players, key=lambda t: t[6]['score'])[6]['score']))
+    max_delta_mean_len = len(pretty_time(max(players, key=lambda t: len(pretty_time(t[6]['mean'])) if t[6]['mean'] is not None else 0)[6]['mean']))
+    max_delta_median_len = len(pretty_time(max(players, key=lambda t: len(pretty_time(t[6]['median'])) if t[6]['median'] is not None else 0)[6]['median']))
 
     ranking = []
-    for i, player in enumerate(players):
-        if player[2] != 0 or \
-                datetime.datetime(CURRENT_YEAR, 12, 2) + datetime.timedelta(hours=5) > datetime.datetime.now():
-            ranking.append(PLAYER_STR_FORMAT.format(rank=i+1,
+    if not delta:
+        for i, player in enumerate(players):
+            if player[2] != 0 or \
+                    datetime.datetime(CURRENT_YEAR, 12, 2) + datetime.timedelta(hours=5) > datetime.datetime.now():
+                ranking.append(PLAYER_STR_FORMAT.format(rank=i+1,
+                                                        name=player[0], name_pad=max_name_len,
+                                                        points=player[1], points_pad=max_points_len,
+                                                        stars=player[2], stars_pad=max_stars_len,
+                                                        star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
+    else:
+        players = players.copy() # we don't want to mutate the original cached player list
+        players.sort(key=lambda tup: tup[3])
+        players.sort(key=lambda tup: tup[2], reverse=True)
+        players.sort(key=lambda tup: tup[6]['score'], reverse=True)
+        for i, player in enumerate(players):
+            if player[6]['score'] == 0: # minimum requirement for leaderboard is a gold star (score > 0)
+                continue
+            ranking.append(PLAYER_STR_FORMAT_DELTA.format(rank=i+1,
                                                     name=player[0], name_pad=max_name_len,
-                                                    points=player[1], points_pad=max_points_len,
+                                                    delta_points=player[6]['score'], delta_points_pad=max_delta_points_len,
                                                     stars=player[2], stars_pad=max_stars_len,
-                                                    star_time=time.strftime('%H:%M %d/%m', time.localtime(player[3]))))
+                                                    delta_mean=pretty_time(player[6]['mean']), delta_mean_pad=max_delta_mean_len,
+                                                    delta_median=pretty_time(player[6]['median']), delta_median_pad=max_delta_median_len))
 
     if not ranking:
         await context.send(f'```No one has completed any stars yet for {year}```')
         return
 
-    await output_leaderboard(context, ranking, f'Leaderboard for {year}:\n')
+    await output_leaderboard(context, ranking, f'{'Delta ' if delta else ''}Leaderboard for {year}:\n')
 
 
 @bot.hybrid_command(name='rank', help='Responds with the current ranking of the supplied player')
@@ -199,7 +269,7 @@ async def keen(context):
 
 
 @bot.hybrid_command(name='daily', help='Will give the daily leaderboard for specified day')
-async def daily(context, day: str = None, year: int = CURRENT_YEAR):
+async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool = False):
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
     if day is None:
@@ -213,58 +283,84 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR):
 
     print("Daily leaderboard requested for day:", day)
     players = get_players(year)
-    # Goes through all the players checking if they have data for that day and if they do add to players_days
-    players_day = [player for player in players if day in player[4]]
 
-    # Players_day has all people who have finished one star for that day
-    first_star = []
-    second_star = []
+    ranking = []
+    if not delta:
+        # Goes through all the players checking if they have data for that day and if they do add to players_days
+        players_day = [player for player in players if day in player[4]]
 
-    # Adds all the players which has stars the into respective lists
-    for player_day in players_day:
-        if '1' in player_day[4][day]:
-            first_star.append((player_day[0], int(player_day[4][day]['1']['get_star_ts'])))
-        if '2' in player_day[4][day]:
-            second_star.append((player_day[0], int(player_day[4][day]['2']['get_star_ts'])))
+        # Players_day has all people who have finished one star for that day
+        first_star = []
+        second_star = []
 
-    # Sorts the two lists on timestamps
-    first_star.sort(key=lambda data: data[1])
-    second_star.sort(key=lambda data: data[1])
+        # Adds all the players which has stars the into respective lists
+        for player_day in players_day:
+            if '1' in player_day[4][day]:
+                first_star.append((player_day[0], int(player_day[4][day]['1']['get_star_ts'])))
+            if '2' in player_day[4][day]:
+                second_star.append((player_day[0], int(player_day[4][day]['2']['get_star_ts'])))
 
-    final_table = []
+        # Sorts the two lists on timestamps
+        first_star.sort(key=lambda data: data[1])
+        second_star.sort(key=lambda data: data[1])
 
-    # Adds all the people from first list
-    for i, player in enumerate(first_star):
-        final_table.append((player[0], (len(players) - i), player[1], 1))
+        final_table = []
 
-    # Updates the list with all the people who got the second star and their score
-    for i, player in enumerate(second_star):
-        index = [i for i, item in enumerate(final_table) if item[0] == player[0]][0]
-        to_change = final_table[index]
-        final_table[index] = (to_change[0], (to_change[1] + (len(players) - i)), player[1], 2)
+        # Adds all the people from first list
+        for i, player in enumerate(first_star):
+            final_table.append((player[0], (len(players) - i), player[1], 1))
 
-    # Sorts the table primarily by score, and secondly by timestamp
-    final_table.sort(key=lambda data: data[2])
-    final_table.sort(reverse=True, key=lambda data: data[1])
+        # Updates the list with all the people who got the second star and their score
+        for i, player in enumerate(second_star):
+            index = [i for i, item in enumerate(final_table) if item[0] == player[0]][0]
+            to_change = final_table[index]
+            final_table[index] = (to_change[0], (to_change[1] + (len(players) - i)), player[1], 2)
 
-    # Outputs data
-    if not final_table:
-        result = "```No Scores for this day yet```"
-        await context.send(result)
-    else:
+        # Sorts the table primarily by score, and secondly by timestamp
+        final_table.sort(key=lambda data: data[2])
+        final_table.sort(reverse=True, key=lambda data: data[1])
+
         # Get string lengths for the format string
         max_name_len = len(max(final_table, key=lambda t: len(t[0]))[0])
         max_points_len = len(str(max(final_table, key=lambda t: t[1])[1]))
         max_stars_len = len(str(max(final_table, key=lambda t: t[3])[3]))
-        ranking = []
+
         for place, player in enumerate(final_table):
             ranking.append(PLAYER_STR_FORMAT.format(rank=place+1,
                                                     name=player[0], name_pad=max_name_len,
                                                     points=player[1], points_pad=max_points_len,
                                                     stars=player[3], stars_pad=max_stars_len,
                                                     star_time=time.strftime('%H:%M %d/%m', time.localtime(player[2]))))
+    else:
+        deltas = []
+        for player in players:
+            if day in player[4] and '2' in player[4][day]:
+                deltas.append({
+                    "player": player,
+                    "score": 0,
+                    "delta": int(player[4][day]['2']['get_star_ts']) - int(player[4][day]['1']['get_star_ts']),
+                })
 
-        await output_leaderboard(context, ranking, f'Leaderboard for {year}, day {day}:\n')
+        deltas.sort(key=lambda data: data["delta"])
+        for i, player in enumerate(deltas):
+            deltas[i]["score"] = (len(players) - i) * 2
+
+        max_name_len = len(max(deltas, key=lambda t: len(t["player"][0]))["player"][0])
+        
+        max_delta_points_len = len(str(max(deltas, key=lambda t: t['score'])['score']))
+        max_delta_time_len = len(str(max(deltas, key=lambda t: t['delta'])['delta']))
+        
+        for place, player in enumerate(deltas):
+            ranking.append(PLAYER_STR_FORMAT_DELTA_DAILY.format(rank=place+1,
+                                                    name=player['player'][0], name_pad=max_name_len,
+                                                    delta_points=player['score'], delta_points_pad=max_delta_points_len,
+                                                    delta=pretty_time(player['delta']), delta_pad=max_delta_time_len))
+
+    if not ranking:
+        result = "```No Scores for this day yet```"
+        await context.send(result)
+    else:
+        await output_leaderboard(context, ranking, f'{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n')
 
 
 @bot.hybrid_command(name='stars', help='Will give the time of completion of each star for specified day')

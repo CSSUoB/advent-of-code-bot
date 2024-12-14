@@ -23,7 +23,7 @@ MAX_MESSAGE_LEN = 2000 - 6
 
 PLAYER_STR_FORMAT = '{rank:2}) {name:{name_pad}} ({points:{points_pad}}) {stars:{stars_pad}}* ({star_time})\n'
 PLAYER_STR_FORMAT_DELTA = '{rank:2}) {name:{name_pad}} ({delta_points:{delta_points_pad}}) {stars:{stars_pad}}* Δ mean: {delta_mean:{delta_mean_pad}} median: {delta_median:{delta_median_pad}}\n'
-PLAYER_STR_FORMAT_DELTA_DAILY = '{rank:2}) {name:{name_pad}} ({delta_points:{delta_points_pad}}) {stars:{stars_pad}}* Δ {delta:{delta_pad}}\n'
+PLAYER_STR_FORMAT_DELTA_DAILY = '{rank:2}) {name:{name_pad}} ({delta_points:{delta_points_pad}}) 2* Δ {delta:{delta_pad}}\n'
 PLAYER_STR_FORMAT_NOPOINTS = '{rank:2}) {name:{name_pad}} {stars:{stars_pad}}* ({star_time})\n'
 URL_STR_FORMAT = 'https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard_id}.json'
 
@@ -320,17 +320,18 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
         final_table.sort(key=lambda data: data[2])
         final_table.sort(reverse=True, key=lambda data: data[1])
 
-        # Get string lengths for the format string
-        max_name_len = len(max(final_table, key=lambda t: len(t[0]))[0])
-        max_points_len = len(str(max(final_table, key=lambda t: t[1])[1]))
-        max_stars_len = len(str(max(final_table, key=lambda t: t[3])[3]))
+        if final_table:
+            # Get string lengths for the format string
+            max_name_len = len(max(final_table, key=lambda t: len(t[0]))[0])
+            max_points_len = len(str(max(final_table, key=lambda t: t[1])[1]))
+            max_stars_len = len(str(max(final_table, key=lambda t: t[3])[3]))
 
-        for place, player in enumerate(final_table):
-            ranking.append(PLAYER_STR_FORMAT.format(rank=place+1,
-                                                    name=player[0], name_pad=max_name_len,
-                                                    points=player[1], points_pad=max_points_len,
-                                                    stars=player[3], stars_pad=max_stars_len,
-                                                    star_time=time.strftime('%H:%M %d/%m', time.localtime(player[2]))))
+            for place, player in enumerate(final_table):
+                ranking.append(PLAYER_STR_FORMAT.format(rank=place+1,
+                                                        name=player[0], name_pad=max_name_len,
+                                                        points=player[1], points_pad=max_points_len,
+                                                        stars=player[3], stars_pad=max_stars_len,
+                                                        star_time=time.strftime('%H:%M %d/%m', time.localtime(player[2]))))
     else:
         deltas = []
         for player in players:
@@ -345,16 +346,16 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
         for i, player in enumerate(deltas):
             deltas[i]["score"] = (len(players) - i) * 2
 
-        max_name_len = len(max(deltas, key=lambda t: len(t["player"][0]))["player"][0])
-        
-        max_delta_points_len = len(str(max(deltas, key=lambda t: t['score'])['score']))
-        max_delta_time_len = len(str(max(deltas, key=lambda t: t['delta'])['delta']))
-        
-        for place, player in enumerate(deltas):
-            ranking.append(PLAYER_STR_FORMAT_DELTA_DAILY.format(rank=place+1,
-                                                    name=player['player'][0], name_pad=max_name_len,
-                                                    delta_points=player['score'], delta_points_pad=max_delta_points_len,
-                                                    delta=pretty_time(player['delta']), delta_pad=max_delta_time_len))
+        if deltas:
+            max_name_len = len(max(deltas, key=lambda t: len(t["player"][0]))["player"][0])
+            max_delta_points_len = len(str(max(deltas, key=lambda t: t['score'])['score']))
+            max_delta_time_len = len(str(max(deltas, key=lambda t: t['delta'])['delta']))
+            
+            for place, player in enumerate(deltas):
+                ranking.append(PLAYER_STR_FORMAT_DELTA_DAILY.format(rank=place+1,
+                                                        name=player['player'][0], name_pad=max_name_len,
+                                                        delta_points=player['score'], delta_points_pad=max_delta_points_len,
+                                                        delta=pretty_time(player['delta']), delta_pad=max_delta_time_len))
 
     if not ranking:
         result = "```No Scores for this day yet```"

@@ -361,7 +361,7 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
         result = "```No Scores for this day yet```"
         await context.send(result)
     else:
-        await output_leaderboard(context, ranking, f'{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n')
+        await output_leaderboard(context, ranking, f"{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n")
 
 
 @bot.hybrid_command(name='stars', help='Will give the time of completion of each star for specified day')

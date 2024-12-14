@@ -213,7 +213,7 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR, 
         await context.send(f'```No one has completed any stars yet for {year}```')
         return
 
-    await output_leaderboard(context, ranking, f'{'Delta ' if delta else ''}Leaderboard for {year}:\n')
+    await output_leaderboard(context, ranking, f"{'Delta ' if delta else ''}Leaderboard for {year}:\n")
 
 
 @bot.hybrid_command(name='rank', help='Responds with the current ranking of the supplied player')
@@ -361,7 +361,7 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
         result = "```No Scores for this day yet```"
         await context.send(result)
     else:
-        await output_leaderboard(context, ranking, f'{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n')
+        await output_leaderboard(context, ranking, f"{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n")
 
 
 @bot.hybrid_command(name='stars', help='Will give the time of completion of each star for specified day')

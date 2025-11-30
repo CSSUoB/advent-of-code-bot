@@ -8,12 +8,21 @@ from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 
+import logging
+from logging import Logger
+
+logger: Logger = logging.getLogger('advent-of-code-bot')
+
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-LEADERBOARD_ID = os.getenv('AOC_LEADERBOARD_ID')
-COOKIE = os.getenv('AOC_COOKIE')
-CURRENT_YEAR = int(os.getenv('CURRENT_YEAR'))
-CHANNEL_NAME = os.getenv('CHANNEL_NAME')
+
+TOKEN: str = os.getenv('DISCORD_TOKEN', "")
+LEADERBOARD_ID: str = os.getenv('AOC_LEADERBOARD_ID', "")
+COOKIE: str = os.getenv('AOC_COOKIE', "")
+CURRENT_YEAR: int = int(os.getenv('CURRENT_YEAR', datetime.datetime.now().year))
+CHANNEL_NAME: str = os.getenv('CHANNEL_NAME', "")
+
+if not all([TOKEN, LEADERBOARD_ID, COOKIE, CHANNEL_NAME]):
+    raise ValueError("One or more required environment variables are missing.")
 
 # Advent Of Code request that you don't poll their API more often than once every 15 minutes
 POLL_MINS = 15
@@ -35,10 +44,13 @@ players_cache = {}
 def get_url(year: int):
     return URL_STR_FORMAT.format(year=year, leaderboard_id=LEADERBOARD_ID)
 
-def pretty_time(seconds):
+def pretty_time(seconds: int) -> str:
+    if not seconds:
+        return "N/A"
+
     if seconds > 86400:
         return ">1d"
-    
+
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
     

@@ -11,6 +11,8 @@ from discord.ext import commands
 import logging
 from logging import Logger
 
+from typing import Optional
+
 logger: Logger = logging.getLogger("advent-of-code-bot")
 
 load_dotenv()
@@ -41,11 +43,11 @@ USER_AGENT = "github.com/CSSUoB/advent-of-code-bot by cssoc@cs.bham.ac.uk"
 players_cache = {}
 
 
-def get_url(year: int):
+def get_url(year: int) -> str:
     return URL_STR_FORMAT.format(year=year, leaderboard_id=LEADERBOARD_ID)
 
 
-def pretty_time(seconds: int) -> str:
+def pretty_time(seconds: Optional[int]) -> str:
     if not seconds:
         return "N/A"
 
@@ -121,7 +123,6 @@ def get_players(year: int = CURRENT_YEAR):
                 raise e
 
         data = json.loads(page)
-        # print(json.dumps(data, indent=4, sort_keys=True))
 
         delta_data = extract_delta_data(data)
         # Extract the data from the JSON, it's a mess
@@ -158,7 +159,7 @@ def get_players(year: int = CURRENT_YEAR):
         players.sort(key=lambda tup: tup[1], reverse=True)
         players_cache[year] = (now, players)
 
-    print(debug_msg)
+    logger.info(debug_msg + f" for year {year}")
     return players_cache[year][1]
 
 
@@ -181,10 +182,9 @@ bot = commands.Bot(intents=discord.Intents.all(), command_prefix="!")
 @bot.event
 async def on_ready() -> None:
     await bot.tree.sync()
-    print(f"{bot.user.name} has connected to Discord and is in the following channels:")
-    for guild in bot.guilds:
-        print("  ", guild.name)
 
+    logger.info(f"{bot.user.name} has connected to Discord")
+    logger.info(f"Channels: {', '.join([str(guild.name) for guild in bot.guilds])}")
 
 @bot.hybrid_command(name="leaderboard", help="Responds with the current leaderboard")
 async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR, delta: bool = False) -> None:
@@ -195,7 +195,7 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR, 
     if num_players < 1:
         return
 
-    print("Leaderboard requested")
+    logger.info("Leaderboard requested")
     players = get_players(year)[:num_players]
 
     if len(players) == 0:
@@ -287,12 +287,13 @@ async def leaderboard(context, num_players: int = 20, year: int = CURRENT_YEAR, 
 
 
 @bot.hybrid_command(name="rank", help="Responds with the current ranking of the supplied player")
-async def rank(context, name, year: int = CURRENT_YEAR):
+async def rank(context, name: str, year: int = CURRENT_YEAR) -> None:
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
+        await context.respond(f"This bot only accepts commands from the channel: <#{CHANNEL_NAME}>")
         return
 
-    print("Rank requested for: ", name)
+    logger.info(f"Rank requested for: {name}")
     players = get_players(year)
 
     # Get the player with the matching name (case-insensitive)
@@ -322,11 +323,11 @@ async def rank(context, name, year: int = CURRENT_YEAR):
 
 
 @bot.hybrid_command(name="keen", help="Responds with today's keenest bean")
-async def keen(context):
+async def keen(context) -> None:
     # Only respond if used in a channel containing CHANNEL_NAME
     if CHANNEL_NAME not in context.channel.name:
         return
-    print("Keenest bean requested")
+    logger.info("Keenest bean requested")
 
     all_players = get_players(CURRENT_YEAR)
     # Calculate the highest number of stars gained by anyone in the leaderboard
@@ -355,7 +356,7 @@ async def keen(context):
 
 
 @bot.hybrid_command(name="daily", help="Will give the daily leaderboard for specified day")
-async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool = False) -> None:
+async def daily(context, day: Optional[str] = None, year: int = CURRENT_YEAR, delta: bool = False) -> None:
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
     if day is None:
@@ -367,7 +368,7 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
     if CHANNEL_NAME not in context.channel.name:
         return
 
-    print("Daily leaderboard requested for day:", day)
+    logger.info(f"Daily leaderboard requested for day: {day} and year: {year}")
     players = get_players(year)
 
     ranking = []
@@ -476,14 +477,14 @@ async def daily(context, day: str = None, year: int = CURRENT_YEAR, delta: bool 
         await context.send(result)
     else:
         await output_leaderboard(
-            context,
-            ranking,
-            f"{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n",
+            context=context,
+            leaderboard_lst=ranking,
+            title=f"{'Delta ' if delta else ''}Leaderboard for {year}, day {day}:\n",
         )
 
 
 @bot.hybrid_command(name="stars", help="Will give the time of completion of each star for specified day")
-async def stars(context, day: str | None = None, year: int = CURRENT_YEAR) -> None:
+async def stars(context, day: Optional[str] = None, year: int = CURRENT_YEAR) -> None:
     # The default day calculation cannot be in the function default value because the default
     # value is evaluated when the program is started, not when the function is called
     if day is None:
@@ -495,7 +496,7 @@ async def stars(context, day: str | None = None, year: int = CURRENT_YEAR) -> No
     if CHANNEL_NAME not in context.channel.name:
         return
 
-    print("Star time leaderboard requested for day:", day)
+    logger.info(f"Star time leaderboard requested for day: {day} and year: {year}")
     players = get_players(year)
 
     # Goes through all the players checking if they have data for that day and if they do adding to players_days
